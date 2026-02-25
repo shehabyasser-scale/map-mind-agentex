@@ -243,7 +243,7 @@ class GameMap {
     totalRounds: 5,
     currentPhoto: null,
     atlasStreamText: "",
-    compassStreamText: "",
+    novaStreamText: "",
     lastLeaderboard: null,
   };
 
@@ -288,18 +288,18 @@ class GameMap {
     state.totalRounds = data.totalRounds;
     state.currentPhoto = data.photo;
     state.atlasStreamText = "";
-    state.compassStreamText = "";
+    state.novaStreamText = "";
 
     document.getElementById("round-indicator").textContent =
       `Round ${data.round} / ${data.totalRounds}`;
     document.getElementById("analysis-photo-img").src = data.photo || "";
 
-    ["atlas", "compass"].forEach((agent) => {
+    ["atlas", "nova"].forEach((agent) => {
       document.getElementById(`${agent}-stream`).innerHTML =
         '<div class="analysis-cursor"></div>';
       document.getElementById(`${agent}-confidence`).classList.add("hidden");
       document.getElementById(`${agent}-title`).textContent =
-        `${agent === "atlas" ? "Atlas" : "Compass"} is analyzing...`;
+        `${agent === "atlas" ? "Atlas" : "Nova"} is analyzing...`;
     });
 
     document.getElementById("analysis-actions").classList.add("hidden");
@@ -316,7 +316,7 @@ class GameMap {
       if (cursor) cursor.remove();
 
       document.getElementById(`${agent}-title`).textContent =
-        `${agent === "atlas" ? "Atlas" : "Compass"} — done!`;
+        `${agent === "atlas" ? "Atlas" : "Nova"} — done!`;
 
       if (data.confidence) {
         const confSection = document.getElementById(`${agent}-confidence`);

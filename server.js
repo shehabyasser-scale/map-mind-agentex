@@ -1,7 +1,7 @@
 /**
  * MapMind — WebSocket Game Server
  *
- * Two AI agents (Atlas & Compass) compete head-to-head
+ * Two AI agents (Atlas & Nova) compete head-to-head
  * to identify locations from photos. The viewer just
  * clicks Start and watches them battle it out.
  */
@@ -46,9 +46,9 @@ const AGENTS = {
     color: "#6c5ce7",
     spreadRange: [3, 18], // degrees offset range (varies per round)
   },
-  compass: {
-    id: "compass",
-    name: "Compass",
+  nova: {
+    id: "nova",
+    name: "Nova",
     color: "#ff6b6b",
     spreadRange: [5, 22],
   },
@@ -133,7 +133,7 @@ function getAgentReasoning(agentId, locationName, difficulty) {
     ],
   };
 
-  const compassClues = {
+  const novaClues = {
     easy: [
       "First instinct: this looks immediately recognizable...\n\n",
       "The overall vibe, crowd density, and tourist infrastructure are distinctive. ",
@@ -157,7 +157,9 @@ function getAgentReasoning(agentId, locationName, difficulty) {
     ],
   };
 
-  const clueSet = agentId === "atlas" ? atlasClues : compassClues;
+  const clueSet = agentId === "atlas" ? atlasClues : novaClues;
+  // Note: when real agents are connected, this function is replaced
+  // by actual LLM-generated reasoning from each agent.
   return clueSet[difficulty] || clueSet.medium;
 }
 
@@ -187,12 +189,12 @@ function simulateDualAI(ws, session, roundData) {
   session.currentGuesses = {};
 
   const atlasClues = getAgentReasoning("atlas", roundData.name, difficulty);
-  const compassClues = getAgentReasoning("compass", roundData.name, difficulty);
+  const novaClues = getAgentReasoning("nova", roundData.name, difficulty);
 
   let atlasIdx = 0;
-  let compassIdx = 0;
+  let novaIdx = 0;
   let atlasDone = false;
-  let compassDone = false;
+  let novaDone = false;
 
   // Stream Atlas reasoning (every 450ms)
   const atlasInterval = setInterval(() => {
@@ -217,37 +219,37 @@ function simulateDualAI(ws, session, roundData) {
         confidence: Math.floor(55 + Math.random() * 35),
       });
       atlasDone = true;
-      if (compassDone) {
+      if (novaDone) {
         session.pendingRoundData = roundData;
         sendTo(ws, { type: "analysis_complete" });
       }
     }
   }, 450);
 
-  // Stream Compass reasoning (every 500ms, staggered by 200ms)
+  // Stream Nova reasoning (every 500ms, staggered by 200ms)
   setTimeout(() => {
-    const compassInterval = setInterval(() => {
-      if (compassIdx < compassClues.length) {
+    const novaInterval = setInterval(() => {
+      if (novaIdx < novaClues.length) {
         sendTo(ws, {
           type: "ai_stream",
-          agent: "compass",
-          text: compassClues[compassIdx],
+          agent: "nova",
+          text: novaClues[novaIdx],
           done: false,
         });
-        compassIdx++;
+        novaIdx++;
       } else {
-        clearInterval(compassInterval);
-        const guess = makeAIGuess(actual, "compass");
-        session.currentGuesses.compass = guess;
+        clearInterval(novaInterval);
+        const guess = makeAIGuess(actual, "nova");
+        session.currentGuesses.nova = guess;
         sendTo(ws, {
           type: "ai_stream",
-          agent: "compass",
+          agent: "nova",
           text: "",
           done: true,
           guess,
           confidence: Math.floor(45 + Math.random() * 45),
         });
-        compassDone = true;
+        novaDone = true;
         if (atlasDone) {
           session.pendingRoundData = roundData;
           sendTo(ws, { type: "analysis_complete" });
@@ -327,8 +329,8 @@ wss.on("connection", (ws) => {
           rounds,
           currentRound: 0,
           totalRounds: Math.min(TOTAL_ROUNDS, rounds.length),
-          agentDistances: { atlas: 0, compass: 0 },
-          roundWins: { atlas: 0, compass: 0 },
+          agentDistances: { atlas: 0, nova: 0 },
+          roundWins: { atlas: 0, nova: 0 },
           currentGuesses: {},
         };
 
@@ -384,8 +386,8 @@ wss.on("connection", (ws) => {
           rounds,
           currentRound: 0,
           totalRounds: Math.min(TOTAL_ROUNDS, rounds.length),
-          agentDistances: { atlas: 0, compass: 0 },
-          roundWins: { atlas: 0, compass: 0 },
+          agentDistances: { atlas: 0, nova: 0 },
+          roundWins: { atlas: 0, nova: 0 },
           currentGuesses: {},
         };
         sendTo(ws, { type: "game_reset" });

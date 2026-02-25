@@ -16,7 +16,7 @@
   --accent-gold: #ffd700;
   --accent-danger: #ff4757;
   --accent-atlas: #6c5ce7;
-  --accent-compass: #ff6b6b;
+  --accent-nova: #ff6b6b;
   --text-primary: #f1f5f9;
   --text-secondary: #94a3b8;
   --text-muted: #475569;
@@ -277,7 +277,7 @@ body::before {
   border-color: rgba(108, 92, 231, 0.3);
   box-shadow: var(--shadow-purple), var(--shadow-card);
 }
-.agent-card.agent-compass:hover {
+.agent-card.agent-nova:hover {
   border-color: rgba(255, 107, 107, 0.3);
   box-shadow: 0 0 40px rgba(255, 107, 107, 0.2), var(--shadow-card);
 }
@@ -299,10 +299,10 @@ body::before {
   border: 2px solid var(--accent-atlas);
   box-shadow: 0 0 20px rgba(108, 92, 231, 0.2);
 }
-.compass-avatar {
+.nova-avatar {
   background: rgba(255, 107, 107, 0.15);
-  color: var(--accent-compass);
-  border: 2px solid var(--accent-compass);
+  color: var(--accent-nova);
+  border: 2px solid var(--accent-nova);
   box-shadow: 0 0 20px rgba(255, 107, 107, 0.2);
 }
 
@@ -445,7 +445,7 @@ body::before {
   background: linear-gradient(135deg, #6c5ce7, #a29bfe);
   box-shadow: var(--shadow-purple);
 }
-.compass-icon {
+.nova-icon {
   background: linear-gradient(135deg, #ff6b6b, #ff8787);
   box-shadow: 0 0 40px rgba(255, 107, 107, 0.2);
 }
@@ -464,8 +464,8 @@ body::before {
   border: 2px solid var(--accent-atlas);
   animation: pulse-ring-anim 1.5s ease-out infinite;
 }
-.agent-panel-compass .pulse-ring {
-  border-color: var(--accent-compass);
+.agent-panel-nova .pulse-ring {
+  border-color: var(--accent-nova);
 }
 .pulse-ring::after {
   content: '';
@@ -475,7 +475,7 @@ body::before {
   border: 1px solid rgba(108, 92, 231, 0.3);
   animation: pulse-ring-anim 1.5s ease-out 0.5s infinite;
 }
-.agent-panel-compass .pulse-ring::after {
+.agent-panel-nova .pulse-ring::after {
   border-color: rgba(255, 107, 107, 0.3);
 }
 @keyframes pulse-ring-anim {
@@ -515,8 +515,8 @@ body::before {
   animation: blink 0.8s step-end infinite;
   vertical-align: text-bottom;
 }
-.agent-panel-compass .analysis-cursor {
-  background: var(--accent-compass);
+.agent-panel-nova .analysis-cursor {
+  background: var(--accent-nova);
   box-shadow: 0 0 6px rgba(255, 107, 107, 0.8);
 }
 @keyframes blink { 50% { opacity: 0; } }
@@ -553,8 +553,8 @@ body::before {
   transition: width 1.5s cubic-bezier(0.22, 1, 0.36, 1);
   box-shadow: 0 0 8px rgba(0, 212, 170, 0.4);
 }
-.agent-panel-compass .confidence-fill {
-  background: linear-gradient(90deg, var(--accent-compass), #ff8787);
+.agent-panel-nova .confidence-fill {
+  background: linear-gradient(90deg, var(--accent-nova), #ff8787);
   box-shadow: 0 0 8px rgba(255, 107, 107, 0.4);
 }
 .confidence-value {
@@ -565,8 +565,8 @@ body::before {
   min-width: 36px;
   text-align: right;
 }
-.agent-panel-compass .confidence-value {
-  color: var(--accent-compass);
+.agent-panel-nova .confidence-value {
+  color: var(--accent-nova);
 }
 
 /* ---------- Analysis Actions (See Results button) ---------- */
