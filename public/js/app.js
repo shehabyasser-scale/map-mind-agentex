@@ -228,3 +228,336 @@ class GameMap {
   `;
   document.head.appendChild(style);
 })();
+
+// ============================================
+// 3. APP (Game controller)
+// ============================================
+
+(function () {
+  "use strict";
+
+  const state = {
+    currentScreen: "landing",
+    resultsMap: null,
+    currentRound: 0,
+    totalRounds: 5,
+    currentPhoto: null,
+    atlasStreamText: "",
+    compassStreamText: "",
+    lastLeaderboard: null,
+  };
+
+  const conn = new Connection();
+
+  // --- Screen Management ---
+
+  function showScreen(name, callback) {
+    document.querySelectorAll(".screen").forEach((s) => s.classList.remove("active"));
+    const screen = document.getElementById(`screen-${name}`);
+    if (screen) screen.classList.add("active");
+    state.currentScreen = name;
+
+    if (name === "results") {
+      setTimeout(() => {
+        if (!state.resultsMap) {
+          state.resultsMap = new GameMap("results-map").init();
+        } else {
+          state.resultsMap.invalidateSize();
+        }
+        if (callback) callback();
+      }, 150);
+    } else {
+      if (callback) callback();
+    }
+  }
+
+  // --- Landing ---
+
+  function initLanding() {
+    document.getElementById("btn-start").addEventListener("click", () => {
+      conn.send({ type: "start_game" });
+      document.getElementById("btn-start").disabled = true;
+      document.getElementById("btn-start").textContent = "Starting...";
+    });
+  }
+
+  // --- Dual AI Analysis ---
+
+  function showDualAnalysis(data) {
+    state.currentRound = data.round;
+    state.totalRounds = data.totalRounds;
+    state.currentPhoto = data.photo;
+    state.atlasStreamText = "";
+    state.compassStreamText = "";
+
+    document.getElementById("round-indicator").textContent =
+      `Round ${data.round} / ${data.totalRounds}`;
+    document.getElementById("analysis-photo-img").src = data.photo || "";
+
+    ["atlas", "compass"].forEach((agent) => {
+      document.getElementById(`${agent}-stream`).innerHTML =
+        '<div class="analysis-cursor"></div>';
+      document.getElementById(`${agent}-confidence`).classList.add("hidden");
+      document.getElementById(`${agent}-title`).textContent =
+        `${agent === "atlas" ? "Atlas" : "Compass"} is analyzing...`;
+    });
+
+    document.getElementById("analysis-actions").classList.add("hidden");
+    showScreen("analysis");
+  }
+
+  function appendAgentStream(data) {
+    const agent = data.agent;
+    const stream = document.getElementById(`${agent}-stream`);
+    if (!stream) return;
+
+    if (data.done) {
+      const cursor = stream.querySelector(".analysis-cursor");
+      if (cursor) cursor.remove();
+
+      document.getElementById(`${agent}-title`).textContent =
+        `${agent === "atlas" ? "Atlas" : "Compass"} — done!`;
+
+      if (data.confidence) {
+        const confSection = document.getElementById(`${agent}-confidence`);
+        confSection.classList.remove("hidden");
+        const fill = document.getElementById(`${agent}-confidence-fill`);
+        const value = document.getElementById(`${agent}-confidence-value`);
+        setTimeout(() => {
+          fill.style.width = `${data.confidence}%`;
+          value.textContent = `${data.confidence}%`;
+        }, 100);
+      }
+      return;
+    }
+
+    const key = `${agent}StreamText`;
+    state[key] += data.text;
+
+    let formatted = escapeHtml(state[key]);
+    formatted = formatted.replace(
+      /\b(Europe|Asia|Africa|America|Australia|Oceania|Middle East|Mediterranean|Pacific|Atlantic)\b/gi,
+      '<span class="location-highlight">$1</span>'
+    );
+
+    stream.innerHTML = formatted + '<div class="analysis-cursor"></div>';
+    stream.scrollTop = stream.scrollHeight;
+  }
+
+  // --- Results ---
+
+  function showRoundResults(data) {
+    state.lastLeaderboard = data.leaderboard;
+
+    document.getElementById("actual-location-name").textContent =
+      data.locationName || "Unknown Location";
+
+    const list = document.getElementById("results-list");
+    list.innerHTML = data.results
+      .map((r, i) => {
+        const rankClass = i === 0 ? "gold" : "silver";
+        const winner = i === 0;
+        return `
+          <li>
+            <span class="result-rank ${rankClass}">${i + 1}</span>
+            <div class="agent-dot" style="background: ${r.color};"></div>
+            <div class="result-info">
+              <div class="result-name">${escapeHtml(r.name)}</div>
+              <div class="result-distance">${r.distance != null ? formatDistance(r.distance) + " away" : "No guess"}</div>
+            </div>
+            ${winner ? '<span class="round-winner-badge">Winner</span>' : ""}
+          </li>
+        `;
+      })
+      .join("");
+
+    const nextBtn = document.getElementById("btn-next-round");
+    const scoreBtn = document.getElementById("btn-show-scoreboard");
+
+    if (data.isLastRound) {
+      nextBtn.classList.add("hidden");
+      scoreBtn.classList.remove("hidden");
+    } else {
+      nextBtn.classList.remove("hidden");
+      scoreBtn.classList.add("hidden");
+    }
+
+    // Show screen first, THEN add markers once the map is ready
+    showScreen("results", () => {
+      state.resultsMap.clearAll();
+
+      if (data.actualLocation) {
+        state.resultsMap.addActualLocationMarker(
+          data.actualLocation.lat,
+          data.actualLocation.lng
+        );
+      }
+
+      data.results.forEach((r, i) => {
+        if (!r.guess) return;
+        setTimeout(() => {
+          state.resultsMap.addResultPin(r.guess.lat, r.guess.lng, r.color, r.name, true);
+          if (data.actualLocation) {
+            state.resultsMap.drawLine(
+              r.guess.lat, r.guess.lng,
+              data.actualLocation.lat, data.actualLocation.lng,
+              r.color + "66"
+            );
+          }
+        }, i * 400);
+      });
+
+      setTimeout(() => state.resultsMap.fitAllMarkers(), data.results.length * 400 + 200);
+    });
+  }
+
+  function initAnalysisControls() {
+    document.getElementById("btn-see-results").addEventListener("click", () => {
+      conn.send({ type: "request_results" });
+    });
+  }
+
+  function initResultsControls() {
+    document.getElementById("btn-next-round").addEventListener("click", () => {
+      conn.send({ type: "next_round" });
+    });
+
+    document.getElementById("btn-show-scoreboard").addEventListener("click", () => {
+      conn.send({ type: "show_scoreboard" });
+    });
+  }
+
+  // --- Scoreboard ---
+
+  function showFinalScoreboard(leaderboard) {
+    const first = leaderboard[0];
+    const second = leaderboard[1];
+
+    if (first) {
+      const p1 = document.getElementById("podium-1");
+      p1.querySelector(".podium-avatar").textContent = first.name.charAt(0);
+      p1.querySelector(".podium-avatar").style.background = first.color + "22";
+      p1.querySelector(".podium-avatar").style.color = first.color;
+      p1.querySelector(".podium-avatar").style.border = `3px solid ${first.color}`;
+      p1.querySelector(".podium-name").textContent = first.name;
+      p1.querySelector(".podium-score").textContent = formatDistance(first.totalDistance) + " total";
+      p1.querySelector(".podium-wins").textContent = first.roundWins + " round" + (first.roundWins !== 1 ? "s" : "") + " won";
+    }
+
+    if (second) {
+      const p2 = document.getElementById("podium-2");
+      p2.querySelector(".podium-avatar").textContent = second.name.charAt(0);
+      p2.querySelector(".podium-avatar").style.background = second.color + "22";
+      p2.querySelector(".podium-avatar").style.color = second.color;
+      p2.querySelector(".podium-avatar").style.border = `3px solid ${second.color}`;
+      p2.querySelector(".podium-name").textContent = second.name;
+      p2.querySelector(".podium-score").textContent = formatDistance(second.totalDistance) + " total";
+      p2.querySelector(".podium-wins").textContent = second.roundWins + " round" + (second.roundWins !== 1 ? "s" : "") + " won";
+    }
+
+    showScreen("scoreboard");
+  }
+
+  function initScoreboardControls() {
+    document.getElementById("btn-play-again").addEventListener("click", () => {
+      conn.send({ type: "play_again" });
+    });
+  }
+
+  // --- Countdown ---
+
+  function showCountdown(count) {
+    let overlay = document.querySelector(".countdown-overlay");
+    if (!overlay) {
+      overlay = document.createElement("div");
+      overlay.className = "countdown-overlay";
+      document.body.appendChild(overlay);
+    }
+    overlay.innerHTML = `<div class="countdown-number">${count}</div>`;
+    overlay.style.display = "flex";
+  }
+
+  function hideCountdown() {
+    const overlay = document.querySelector(".countdown-overlay");
+    if (overlay) overlay.style.display = "none";
+  }
+
+  // --- Toast ---
+
+  function showToast(message, duration = 3000) {
+    let toast = document.querySelector(".toast");
+    if (!toast) {
+      toast = document.createElement("div");
+      toast.className = "toast";
+      document.body.appendChild(toast);
+    }
+    toast.textContent = message;
+    toast.classList.add("show");
+    setTimeout(() => toast.classList.remove("show"), duration);
+  }
+
+  // --- Utilities ---
+
+  function escapeHtml(str) {
+    const div = document.createElement("div");
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  function formatDistance(km) {
+    if (km < 1) return `${Math.round(km * 1000)} m`;
+    if (km < 100) return `${km.toFixed(1)} km`;
+    return `${Math.round(km).toLocaleString()} km`;
+  }
+
+  // --- WebSocket Events ---
+
+  function bindConnectionEvents() {
+    conn.on("connected", () => {});
+    conn.on("disconnected", () => showToast("Disconnected from server"));
+    conn.on("error", (msg) => showToast(msg.message || "An error occurred"));
+    conn.on("game_starting", () => showToast("Game starting..."));
+    conn.on("countdown", (msg) => showCountdown(msg.count));
+
+    conn.on("round_start", (msg) => {
+      hideCountdown();
+      showDualAnalysis(msg);
+    });
+
+    conn.on("ai_stream", (msg) => appendAgentStream(msg));
+
+    conn.on("analysis_complete", () => {
+      document.getElementById("analysis-actions").classList.remove("hidden");
+    });
+
+    conn.on("round_results", (msg) => showRoundResults(msg));
+    conn.on("final_scoreboard", (msg) => showFinalScoreboard(msg.leaderboard));
+
+    conn.on("game_reset", () => {
+      state.currentRound = 0;
+      state.lastLeaderboard = null;
+      if (state.resultsMap) state.resultsMap.clearAll();
+      const btn = document.getElementById("btn-start");
+      btn.disabled = false;
+      btn.textContent = "Start Game";
+      showScreen("landing");
+    });
+  }
+
+  // --- Init ---
+
+  function init() {
+    initLanding();
+    initAnalysisControls();
+    initResultsControls();
+    initScoreboardControls();
+    bindConnectionEvents();
+    conn.connect();
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
+  } else {
+    init();
+  }
+})();
