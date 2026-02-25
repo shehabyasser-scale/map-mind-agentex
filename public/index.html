@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>MapMind</title>
+  <meta name="description" content="Two AI agents battle to identify locations around the world">
+
+  <!-- Google Fonts preconnect -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+
+  <!-- Game CSS -->
+  <link rel="stylesheet" href="/css/game.css">
+
+  <!-- Favicon -->
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌍</text></svg>">
+</head>
+<body>
+
+<!-- ============================================ -->
+<!-- LANDING SCREEN                               -->
+<!-- ============================================ -->
+<div id="screen-landing" class="screen active">
+  <div class="landing-container">
+    <div class="globe-wrapper">
+      <div class="globe-glow"></div>
+      <img src="/images/globe.svg" alt="Globe" class="globe-icon">
+    </div>
+    <h1 class="game-title">
+      <span class="title-map">Map</span><span class="title-mind">Mind</span>
+    </h1>
+    <p class="game-subtitle">Two AI agents battle to identify locations around the world</p>
+
+    <!-- Agent matchup preview -->
+    <div class="agent-matchup">
+      <div class="agent-card agent-atlas">
+        <div class="agent-avatar atlas-avatar">A</div>
+        <span class="agent-label">Atlas</span>
+        <span class="agent-style">Methodical</span>
+      </div>
+      <span class="vs-badge">VS</span>
+      <div class="agent-card agent-compass">
+        <div class="agent-avatar compass-avatar">C</div>
+        <span class="agent-label">Compass</span>
+        <span class="agent-style">Intuitive</span>
+      </div>
+    </div>
+
+    <div class="landing-buttons">
+      <button id="btn-start" class="btn btn-primary btn-large">
+        Start Game
+      </button>
+    </div>
+
+    <p class="landing-footer">Powered by AgentEx</p>
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- AI ANALYSIS SCREEN (Dual Agents)             -->
+<!-- ============================================ -->
+<div id="screen-analysis" class="screen">
+  <div class="analysis-layout">
+    <!-- Photo banner -->
+    <div class="analysis-photo">
+      <img id="analysis-photo-img" class="game-photo" src="" alt="Location photo">
+      <div class="photo-overlay">
+        <span id="round-indicator" class="round-indicator">Round 1 / 5</span>
+      </div>
+    </div>
+
+    <!-- Dual agent panels -->
+    <div class="analysis-agents">
+      <!-- Atlas -->
+      <div class="analysis-panel agent-panel-atlas">
+        <div class="analysis-header">
+          <div class="ai-thinking-icon atlas-icon">
+            <div class="pulse-ring"></div>
+            <span class="ai-icon-text">A</span>
+          </div>
+          <h3 id="atlas-title" class="analysis-title">Atlas is analyzing...</h3>
+        </div>
+        <div id="atlas-stream" class="analysis-stream">
+          <div class="analysis-cursor"></div>
+        </div>
+        <div id="atlas-confidence" class="ai-confidence hidden">
+          <span class="confidence-label">Confidence</span>
+          <div class="confidence-bar">
+            <div id="atlas-confidence-fill" class="confidence-fill"></div>
+          </div>
+          <span id="atlas-confidence-value" class="confidence-value">0%</span>
+        </div>
+      </div>
+
+      <!-- Compass -->
+      <div class="analysis-panel agent-panel-compass">
+        <div class="analysis-header">
+          <div class="ai-thinking-icon compass-icon">
+            <div class="pulse-ring"></div>
+            <span class="ai-icon-text">C</span>
+          </div>
+          <h3 id="compass-title" class="analysis-title">Compass is analyzing...</h3>
+        </div>
+        <div id="compass-stream" class="analysis-stream">
+          <div class="analysis-cursor"></div>
+        </div>
+        <div id="compass-confidence" class="ai-confidence hidden">
+          <span class="confidence-label">Confidence</span>
+          <div class="confidence-bar">
+            <div id="compass-confidence-fill" class="confidence-fill"></div>
+          </div>
+          <span id="compass-confidence-value" class="confidence-value">0%</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Shown after both agents finish -->
+    <div id="analysis-actions" class="analysis-actions hidden">
+      <button id="btn-see-results" class="btn btn-primary btn-large">
+        See Results
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- RESULTS SCREEN                               -->
+<!-- ============================================ -->
+<div id="screen-results" class="screen">
+  <div class="results-container">
+    <h2 class="results-title">Round Results</h2>
+    <div class="results-body">
+      <div id="results-map" class="results-map"></div>
+      <div class="results-sidebar">
+        <div class="actual-location">
+          <span class="actual-label">Actual Location</span>
+          <h3 id="actual-location-name" class="actual-location-name">---</h3>
+        </div>
+        <ul id="results-list" class="results-list"></ul>
+      </div>
+    </div>
+    <div class="results-actions">
+      <button id="btn-next-round" class="btn btn-primary btn-large hidden">
+        Next Round
+      </button>
+      <button id="btn-show-scoreboard" class="btn btn-primary btn-large hidden">
+        Final Scores
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- SCOREBOARD SCREEN                            -->
+<!-- ============================================ -->
+<div id="screen-scoreboard" class="screen">
+  <div class="scoreboard-container">
+    <h2 class="scoreboard-title">Final Scoreboard</h2>
+    <div class="podium">
+      <div id="podium-2" class="podium-place podium-second">
+        <div class="podium-avatar">-</div>
+        <div class="podium-name">---</div>
+        <div class="podium-score">---</div>
+        <div class="podium-wins">0 rounds won</div>
+        <div class="podium-bar"></div>
+        <span class="podium-rank">2nd</span>
+      </div>
+      <div id="podium-1" class="podium-place podium-first">
+        <div class="podium-crown">&#9813;</div>
+        <div class="podium-avatar">-</div>
+        <div class="podium-name">---</div>
+        <div class="podium-score">---</div>
+        <div class="podium-wins">0 rounds won</div>
+        <div class="podium-bar"></div>
+        <span class="podium-rank">1st</span>
+      </div>
+    </div>
+    <div class="scoreboard-actions">
+      <button id="btn-play-again" class="btn btn-primary btn-large">
+        Play Again
+      </button>
+    </div>
+  </div>
+</div>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+  <!-- Game JS (single bundle) -->
+  <script src="/js/app.js"></script>
+</body>
+</html>
