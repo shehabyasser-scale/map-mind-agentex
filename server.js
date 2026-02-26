@@ -16,7 +16,7 @@ const app = express();
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server });
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 4567;
 
 // Serve static files
 const publicDir = path.join(__dirname, "public");

@@ -9,9 +9,9 @@ COPY public/ ./public/
 COPY server.js ./
 COPY data/ ./data/
 
-EXPOSE 3000
+EXPOSE 4567
 
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://localhost:3000/health || exit 1
+  CMD wget --no-verbose --tries=1 --spider http://localhost:4567/health || exit 1
 
 CMD ["node", "server.js"]

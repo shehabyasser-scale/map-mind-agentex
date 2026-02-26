@@ -17,7 +17,7 @@ npm install
 npm start
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+Open [http://localhost:4567](http://localhost:4567).
 
 ## Project Structure
 
@@ -381,5 +381,5 @@ async function simulateDualAI(ws, session, roundData) {
 
 ```bash
 docker build -t mapmind .
-docker run -p 3000:3000 mapmind
+docker run -p 4567:4567 mapmind
 ```
