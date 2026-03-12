@@ -429,7 +429,7 @@ class GameMap {
 
   // --- Scoreboard ---
 
-  function showFinalScoreboard(leaderboard) {
+  function showFinalScoreboard(leaderboard, draws) {
     const first = leaderboard[0];
     const second = leaderboard[1];
 
@@ -453,6 +453,14 @@ class GameMap {
       p2.querySelector(".podium-name").textContent = second.name;
       p2.querySelector(".podium-score").textContent = formatDistance(second.totalDistance) + " total";
       p2.querySelector(".podium-wins").textContent = second.roundWins + " round" + (second.roundWins !== 1 ? "s" : "") + " won";
+    }
+
+    const drawsEl = document.getElementById("draws-summary");
+    if (draws > 0) {
+      drawsEl.textContent = draws + " round" + (draws !== 1 ? "s" : "") + " drawn";
+      drawsEl.classList.remove("hidden");
+    } else {
+      drawsEl.classList.add("hidden");
     }
 
     showScreen("scoreboard");
@@ -531,7 +539,7 @@ class GameMap {
     });
 
     conn.on("round_results", (msg) => showRoundResults(msg));
-    conn.on("final_scoreboard", (msg) => showFinalScoreboard(msg.leaderboard));
+    conn.on("final_scoreboard", (msg) => showFinalScoreboard(msg.leaderboard, msg.draws || 0));
 
     conn.on("game_reset", () => {
       state.currentRound = 0;

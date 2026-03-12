@@ -79,7 +79,7 @@ CRITICAL: End your response with your coordinate guess as JSON on its own line:
   },
 };
 
-const TOTAL_ROUNDS = 5;
+const TOTAL_ROUNDS = 20;
 
 // ============================================
 // Scoring
@@ -107,7 +107,7 @@ function loadRounds() {
   if (fs.existsSync(dataPath)) {
     data = JSON.parse(fs.readFileSync(dataPath, "utf-8"));
   }
-  return data.sort(() => Math.random() - 0.5);
+  return data.sort((a, b) => a.id - b.id);
 }
 
 // ============================================
@@ -495,6 +495,10 @@ async function callNovaDirectOpenAI(ws, agentId, imageUrl, session, roundData) {
 
 function playRound(ws, session) {
   const roundData = session.rounds[session.currentRound];
+  if (!roundData) {
+    console.error(`[Game] No round data at index ${session.currentRound}`);
+    return;
+  }
   session.currentRound++;
 
   sendTo(ws, {
@@ -506,7 +510,13 @@ function playRound(ws, session) {
   });
 
   setTimeout(async () => {
-    await simulateDualAI(ws, session, roundData);
+    try {
+      await simulateDualAI(ws, session, roundData);
+    } catch (err) {
+      console.error("[Game] Fatal error in playRound:", err);
+      session.pendingRoundData = roundData;
+      sendTo(ws, { type: "analysis_complete" });
+    }
   }, 500);
 }
 
@@ -514,12 +524,33 @@ async function simulateDualAI(ws, session, roundData) {
   session.currentGuesses = {};
   const imageUrl = roundData.image_url;
 
-  // Atlas → AgentEx (traces to SGP)
-  // Nova  → Direct OpenAI (no traces)
-  await Promise.all([
-    callAtlasViaAgentEx(ws, session, imageUrl, roundData),
-    callNovaDirectOpenAI(ws, "nova", imageUrl, session, roundData),
-  ]);
+  try {
+    await Promise.all([
+      callAtlasViaAgentEx(ws, session, imageUrl, roundData).catch((err) => {
+        console.error("[Atlas] Unhandled error:", err.message);
+        const guess = makeRandomGuess(roundData.location, "atlas");
+        session.currentGuesses.atlas = guess;
+        sendTo(ws, { type: "ai_stream", agent: "atlas", text: "[Error — using fallback]\n", done: false });
+        sendTo(ws, { type: "ai_stream", agent: "atlas", text: "", done: true, guess, confidence: 10 });
+      }),
+      callNovaDirectOpenAI(ws, "nova", imageUrl, session, roundData).catch((err) => {
+        console.error("[Nova] Unhandled error:", err.message);
+        const guess = makeRandomGuess(roundData.location, "nova");
+        session.currentGuesses.nova = guess;
+        sendTo(ws, { type: "ai_stream", agent: "nova", text: "[Error — using fallback]\n", done: false });
+        sendTo(ws, { type: "ai_stream", agent: "nova", text: "", done: true, guess, confidence: 10 });
+      }),
+    ]);
+  } catch (err) {
+    console.error("[Game] Critical error in dual AI:", err.message);
+    for (const agentId of ["atlas", "nova"]) {
+      if (!session.currentGuesses[agentId]) {
+        const guess = makeRandomGuess(roundData.location, agentId);
+        session.currentGuesses[agentId] = guess;
+        sendTo(ws, { type: "ai_stream", agent: agentId, text: "", done: true, guess, confidence: 10 });
+      }
+    }
+  }
 
   session.pendingRoundData = roundData;
   sendTo(ws, { type: "analysis_complete" });
@@ -544,8 +575,12 @@ function finishRound(ws, session, roundData) {
   });
 
   results.sort((a, b) => a.distance - b.distance);
-  if (results.length >= 2 && results[0].distance < results[1].distance) {
-    session.roundWins[results[0].agentId]++;
+  if (results.length >= 2) {
+    if (results[0].distance < results[1].distance) {
+      session.roundWins[results[0].agentId]++;
+    } else if (results[0].distance === results[1].distance) {
+      session.draws++;
+    }
   }
 
   const isLastRound = session.currentRound >= session.totalRounds;
@@ -568,6 +603,7 @@ function finishRound(ws, session, roundData) {
     locationName: roundData.name,
     isLastRound,
     leaderboard,
+    draws: session.draws,
   });
 }
 
@@ -595,8 +631,9 @@ wss.on("connection", (ws) => {
           totalRounds: Math.min(TOTAL_ROUNDS, rounds.length),
           agentDistances: { atlas: 0, nova: 0 },
           roundWins: { atlas: 0, nova: 0 },
+          draws: 0,
           currentGuesses: {},
-          atlasTaskId: null, // AgentEx task ID for Atlas (created on first round)
+          atlasTaskId: null,
         };
 
         sendTo(ws, { type: "game_starting" });
@@ -640,7 +677,7 @@ wss.on("connection", (ws) => {
           }))
           .sort((a, b) => a.totalDistance - b.totalDistance);
 
-        sendTo(ws, { type: "final_scoreboard", leaderboard });
+        sendTo(ws, { type: "final_scoreboard", leaderboard, draws: session.draws });
         break;
       }
 
@@ -652,6 +689,7 @@ wss.on("connection", (ws) => {
           totalRounds: Math.min(TOTAL_ROUNDS, rounds.length),
           agentDistances: { atlas: 0, nova: 0 },
           roundWins: { atlas: 0, nova: 0 },
+          draws: 0,
           currentGuesses: {},
           atlasTaskId: null,
         };

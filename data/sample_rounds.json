@@ -1,86 +1,142 @@
 [
   {
     "id": 1,
-    "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/7/7c/Sydney_Opera_House_-_Dec_2008.jpg/1280px-Sydney_Opera_House_-_Dec_2008.jpg",
-    "location": { "lat": -33.8568, "lng": 151.2153 },
-    "name": "Sydney Opera House, Australia",
+    "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/7/72/Tour_Eiffel%2C_Paris%2C_France.JPG/960px-Tour_Eiffel%2C_Paris%2C_France.JPG",
+    "location": { "lat": 48.8584, "lng": 2.2945 },
+    "name": "Eiffel Tower, Paris, France",
     "difficulty": "easy"
   },
   {
     "id": 2,
-    "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/9/93/Sunset_Santorini_Greece.jpg/1280px-Sunset_Santorini_Greece.jpg",
-    "location": { "lat": 36.3932, "lng": 25.4615 },
-    "name": "Santorini, Greece",
-    "difficulty": "medium"
+    "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/3/39/NYC_-_Times_Square.JPG/960px-NYC_-_Times_Square.JPG",
+    "location": { "lat": 40.7580, "lng": -73.9855 },
+    "name": "Times Square, New York City, USA",
+    "difficulty": "easy"
   },
   {
     "id": 3,
-    "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/2/23/The_Great_Wall_of_China_at_Jinshanling-edit.jpg/1280px-The_Great_Wall_of_China_at_Jinshanling-edit.jpg",
-    "location": { "lat": 40.6769, "lng": 117.2320 },
-    "name": "Great Wall of China, Jinshanling, China",
+    "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/0/0c/Oxford_Street_Sydney.JPG/960px-Oxford_Street_Sydney.JPG",
+    "location": { "lat": -33.8830, "lng": 151.2216 },
+    "name": "Oxford Street, Sydney, Australia",
     "difficulty": "medium"
   },
   {
     "id": 4,
-    "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/6/62/Al_Khazneh_Petra_edit_2.jpg/1280px-Al_Khazneh_Petra_edit_2.jpg",
-    "location": { "lat": 30.3285, "lng": 35.4444 },
-    "name": "Petra (Al-Khazneh), Jordan",
+    "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/0/02/Praia_de_Copacabana_-_Rio_de_Janeiro.JPG/960px-Praia_de_Copacabana_-_Rio_de_Janeiro.JPG",
+    "location": { "lat": -22.9711, "lng": -43.1826 },
+    "name": "Copacabana Beach, Rio de Janeiro, Brazil",
     "difficulty": "easy"
   },
   {
     "id": 5,
-    "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/2/25/Angkor_Wat_with_its_reflection_%28cropped%29.jpg/1280px-Angkor_Wat_with_its_reflection_%28cropped%29.jpg",
-    "location": { "lat": 13.4125, "lng": 103.8670 },
-    "name": "Angkor Wat, Cambodia",
-    "difficulty": "easy"
+    "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/55/Gonnosuke-zaka_Street_Tokyo.JPG/960px-Gonnosuke-zaka_Street_Tokyo.JPG",
+    "location": { "lat": 35.6762, "lng": 139.6503 },
+    "name": "Gonnosuke-zaka Street, Tokyo, Japan",
+    "difficulty": "hard"
   },
   {
     "id": 6,
-    "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/dc/Table_Mountain_DanieVDM.jpg/1280px-Table_Mountain_DanieVDM.jpg",
-    "location": { "lat": -33.9628, "lng": 18.4098 },
-    "name": "Table Mountain, Cape Town, South Africa",
+    "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/55/Bangkok_Thailand_Random_Street_in_the_City.JPG/960px-Bangkok_Thailand_Random_Street_in_the_City.JPG",
+    "location": { "lat": 13.7563, "lng": 100.5018 },
+    "name": "Street in Bangkok, Thailand",
     "difficulty": "medium"
   },
   {
     "id": 7,
-    "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e4/Hallstatt_300.jpg/1280px-Hallstatt_300.jpg",
-    "location": { "lat": 47.5622, "lng": 13.6493 },
-    "name": "Hallstatt, Austria",
-    "difficulty": "hard"
+    "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/2/27/Marrakech_203.JPG/960px-Marrakech_203.JPG",
+    "location": { "lat": 31.6295, "lng": -7.9811 },
+    "name": "Marrakech, Morocco",
+    "difficulty": "medium"
   },
   {
     "id": 8,
-    "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/4/4f/Christ_the_Redeemer_-_Cristo_Redentor.jpg/1280px-Christ_the_Redeemer_-_Cristo_Redentor.jpg",
-    "location": { "lat": -22.9519, "lng": -43.2105 },
-    "name": "Christ the Redeemer, Rio de Janeiro, Brazil",
+    "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b0/Amsterdam_Canal..JPG/960px-Amsterdam_Canal..JPG",
+    "location": { "lat": 52.3676, "lng": 4.9041 },
+    "name": "Amsterdam Canal, Netherlands",
     "difficulty": "easy"
   },
   {
     "id": 9,
-    "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/0/0e/Torii_path_with_lantern_at_Fushimi_Inari_Taisha_Shrine%2C_Kyoto%2C_Japan.jpg/1280px-Torii_path_with_lantern_at_Fushimi_Inari_Taisha_Shrine%2C_Kyoto%2C_Japan.jpg",
-    "location": { "lat": 34.9671, "lng": 135.7727 },
-    "name": "Fushimi Inari Shrine, Kyoto, Japan",
+    "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/7/7d/Buenos_Aires_street_view.JPG/960px-Buenos_Aires_street_view.JPG",
+    "location": { "lat": -34.6037, "lng": -58.3816 },
+    "name": "Buenos Aires, Argentina",
     "difficulty": "medium"
   },
   {
     "id": 10,
-    "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c5/Moraine_Lake_17092005.jpg/1280px-Moraine_Lake_17092005.jpg",
-    "location": { "lat": 51.3217, "lng": -116.1860 },
-    "name": "Moraine Lake, Banff, Canada",
+    "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/6/60/Lisbon_Tram_12.JPG/960px-Lisbon_Tram_12.JPG",
+    "location": { "lat": 38.7223, "lng": -9.1393 },
+    "name": "Lisbon Tram, Portugal",
     "difficulty": "medium"
   },
   {
     "id": 11,
-    "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c5/Egypt.Giza.Sphinx.01.jpg/1280px-Egypt.Giza.Sphinx.01.jpg",
-    "location": { "lat": 29.9753, "lng": 31.1376 },
-    "name": "Great Sphinx and Pyramids of Giza, Egypt",
-    "difficulty": "easy"
+    "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/e/eb/Old_Havana_back_street.JPG/960px-Old_Havana_back_street.JPG",
+    "location": { "lat": 23.1136, "lng": -82.3666 },
+    "name": "Old Havana, Cuba",
+    "difficulty": "hard"
   },
   {
     "id": 12,
-    "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/af/Halong_bay.jpg/1280px-Halong_bay.jpg",
-    "location": { "lat": 20.9101, "lng": 107.1839 },
-    "name": "Ha Long Bay, Vietnam",
+    "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a0/Old_Quarter_Hanoi_Street_View.JPG/960px-Old_Quarter_Hanoi_Street_View.JPG",
+    "location": { "lat": 21.0335, "lng": 105.8510 },
+    "name": "Old Quarter, Hanoi, Vietnam",
+    "difficulty": "hard"
+  },
+  {
+    "id": 13,
+    "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/0/08/Nairobi%2C_view_from_KICC.JPG/960px-Nairobi%2C_view_from_KICC.JPG",
+    "location": { "lat": -1.2864, "lng": 36.8172 },
+    "name": "Nairobi, Kenya",
+    "difficulty": "medium"
+  },
+  {
+    "id": 14,
+    "image_url": "https://upload.wikimedia.org/wikipedia/commons/2/2e/Malecon_Barranco_Miraflores.JPG",
+    "location": { "lat": -12.1328, "lng": -77.0225 },
+    "name": "Malecon, Miraflores, Lima, Peru",
+    "difficulty": "hard"
+  },
+  {
+    "id": 15,
+    "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/4/44/Prague_07-2016_View_from_Old_Town_Hall_Tower_img3.jpg/960px-Prague_07-2016_View_from_Old_Town_Hall_Tower_img3.jpg",
+    "location": { "lat": 50.0875, "lng": 14.4213 },
+    "name": "Prague Old Town, Czech Republic",
+    "difficulty": "medium"
+  },
+  {
+    "id": 16,
+    "image_url": "https://upload.wikimedia.org/wikipedia/commons/0/05/Victory_Avenue_Calea_Victoriei_Bucharest_Bucuresti_Romania.JPG",
+    "location": { "lat": 44.4361, "lng": 26.0974 },
+    "name": "Calea Victoriei, Bucharest, Romania",
+    "difficulty": "hard"
+  },
+  {
+    "id": 17,
+    "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/4/43/Historic_buildings_in_old_Tbilisi%2C_Georgia.JPG/960px-Historic_buildings_in_old_Tbilisi%2C_Georgia.JPG",
+    "location": { "lat": 41.6941, "lng": 44.8337 },
+    "name": "Old Tbilisi, Georgia",
+    "difficulty": "hard"
+  },
+  {
+    "id": 18,
+    "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/6/66/Beautiful_Landmark_Muslim_Mosque_in_Colombo%2C_Sri_Lanka.JPG/960px-Beautiful_Landmark_Muslim_Mosque_in_Colombo%2C_Sri_Lanka.JPG",
+    "location": { "lat": 6.9271, "lng": 79.8612 },
+    "name": "Mosque in Colombo, Sri Lanka",
+    "difficulty": "hard"
+  },
+  {
+    "id": 19,
+    "image_url": "https://upload.wikimedia.org/wikipedia/commons/5/59/Mutrah_Souq%2C_Muscat.JPG",
+    "location": { "lat": 23.6195, "lng": 58.5670 },
+    "name": "Mutrah Souq, Muscat, Oman",
+    "difficulty": "hard"
+  },
+  {
+    "id": 20,
+    "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c9/The_culture_house_reykjavik.JPG/960px-The_culture_house_reykjavik.JPG",
+    "location": { "lat": 64.1466, "lng": -21.9426 },
+    "name": "Culture House, Reykjavik, Iceland",
     "difficulty": "hard"
   }
 ]

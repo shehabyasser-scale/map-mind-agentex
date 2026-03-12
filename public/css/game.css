@@ -931,6 +931,17 @@ body::before {
   letter-spacing: 0.1em;
 }
 
+.draws-summary {
+  text-align: center;
+  font-size: 1.1rem;
+  color: var(--text-secondary);
+  padding: 12px 0 4px;
+  letter-spacing: 0.03em;
+}
+.draws-summary::before {
+  content: "🤝 ";
+}
+
 .scoreboard-actions { padding-top: 20px; }
 
 /* ============================================
