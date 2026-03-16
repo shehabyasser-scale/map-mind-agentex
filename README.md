@@ -92,9 +92,9 @@ MapMind is a spectator game — the user doesn't play, they watch two AI agents 
 │     TEMPORAL SERVER (k8s)     │
 │                               │
 │  Workflow queue:              │
-│  agent_shehab_3_queue         │
+│  atlas_vs_queue               │
 │                               │
-│  Workflow: agent-shehab-3     │
+│  Workflow: atlas-vs           │
 └──────────────┬────────────────┘
                │ Poll for tasks
                │
@@ -103,7 +103,7 @@ MapMind is a spectator game — the user doesn't play, they watch two AI agents 
 │              project/run_worker.py                                     │
 │                                                                        │
 │  ┌──────────────────────────────────────────────────────────────────┐  │
-│  │  AgentShehab3Workflow (project/workflow.py)                      │  │
+│  │  AtlasVsWorkflow (project/workflow.py)                           │  │
 │  │                                                                  │  │
 │  │  on_task_create()                                                │  │
 │  │    → sends welcome message                                      │  │

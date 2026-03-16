@@ -34,22 +34,25 @@
     <h1 class="game-title">
       <span class="title-map">Map</span><span class="title-mind">Mind</span>
     </h1>
-    <p class="game-subtitle">Two AI agents battle to identify locations around the world</p>
+    <p class="game-subtitle">Choose two AI agents and watch them battle to identify locations</p>
 
-    <!-- Agent matchup preview -->
-    <div class="agent-matchup">
-      <div class="agent-card agent-atlas">
-        <div class="agent-avatar atlas-avatar">A</div>
-        <span class="agent-label">Atlas</span>
-        <span class="agent-style">Methodical</span>
+    <!-- Agent selector -->
+    <div class="agent-selector">
+      <div class="selector-slot">
+        <label class="selector-label">Agent 1</label>
+        <select id="select-agent-1" class="agent-select"></select>
       </div>
       <span class="vs-badge">VS</span>
-      <div class="agent-card agent-nova">
-        <div class="agent-avatar nova-avatar">N</div>
-        <span class="agent-label">Nova</span>
-        <span class="agent-style">Intuitive</span>
+      <div class="selector-slot">
+        <label class="selector-label">Agent 2</label>
+        <select id="select-agent-2" class="agent-select"></select>
       </div>
     </div>
+
+    <!-- Agent matchup preview (populated by JS) -->
+    <div id="agent-matchup" class="agent-matchup"></div>
+
+    <div id="agent-select-error" class="agent-select-error hidden"></div>
 
     <div class="landing-buttons">
       <button id="btn-start" class="btn btn-primary btn-large">
@@ -74,50 +77,8 @@
       </div>
     </div>
 
-    <!-- Dual agent panels -->
-    <div class="analysis-agents">
-      <!-- Atlas -->
-      <div class="analysis-panel agent-panel-atlas">
-        <div class="analysis-header">
-          <div class="ai-thinking-icon atlas-icon">
-            <div class="pulse-ring"></div>
-            <span class="ai-icon-text">A</span>
-          </div>
-          <h3 id="atlas-title" class="analysis-title">Atlas is analyzing...</h3>
-        </div>
-        <div id="atlas-stream" class="analysis-stream">
-          <div class="analysis-cursor"></div>
-        </div>
-        <div id="atlas-confidence" class="ai-confidence hidden">
-          <span class="confidence-label">Confidence</span>
-          <div class="confidence-bar">
-            <div id="atlas-confidence-fill" class="confidence-fill"></div>
-          </div>
-          <span id="atlas-confidence-value" class="confidence-value">0%</span>
-        </div>
-      </div>
-
-      <!-- Nova -->
-      <div class="analysis-panel agent-panel-nova">
-        <div class="analysis-header">
-          <div class="ai-thinking-icon nova-icon">
-            <div class="pulse-ring"></div>
-            <span class="ai-icon-text">N</span>
-          </div>
-          <h3 id="nova-title" class="analysis-title">Nova is analyzing...</h3>
-        </div>
-        <div id="nova-stream" class="analysis-stream">
-          <div class="analysis-cursor"></div>
-        </div>
-        <div id="nova-confidence" class="ai-confidence hidden">
-          <span class="confidence-label">Confidence</span>
-          <div class="confidence-bar">
-            <div id="nova-confidence-fill" class="confidence-fill"></div>
-          </div>
-          <span id="nova-confidence-value" class="confidence-value">0%</span>
-        </div>
-      </div>
-    </div>
+    <!-- Dual agent panels (populated dynamically by JS) -->
+    <div id="analysis-agents" class="analysis-agents"></div>
 
     <!-- Shown after both agents finish -->
     <div id="analysis-actions" class="analysis-actions hidden">

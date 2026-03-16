@@ -53,9 +53,9 @@
 │     TEMPORAL SERVER (k8s)     │
 │                               │
 │  Workflow queue:              │
-│  agent_shehab_3_queue         │
+│  atlas_vs_queue               │
 │                               │
-│  Workflow: agent-shehab-3     │
+│  Workflow: atlas-vs           │
 └──────────────┬────────────────┘
                │ Poll for tasks
                │
@@ -64,7 +64,7 @@
 │              project/run_worker.py                                     │
 │                                                                        │
 │  ┌──────────────────────────────────────────────────────────────────┐  │
-│  │  AgentShehab3Workflow (project/workflow.py)                      │  │
+│  │  AtlasVsWorkflow (project/workflow.py)                           │  │
 │  │                                                                  │  │
 │  │  on_task_create()                                                │  │
 │  │    → sends welcome message                                      │  │
@@ -119,11 +119,11 @@ done         → End of a message
 ### Game Server (.env)
 - `OPENAI_API_KEY` — For Nova's direct OpenAI calls
 - `AGENTEX_URL` — AgentEx backend (default: http://localhost:5003)
-- `AGENTEX_AGENT_NAME` — Agent name (default: agent-shehab-3)
+- `AGENTEX_AGENT_NAME` — Agent name (default: atlas-vs)
 
 ### Worker (set when running)
-- `WORKFLOW_TASK_QUEUE=agent_shehab_3_queue`
-- `WORKFLOW_NAME=agent-shehab-3`
+- `WORKFLOW_TASK_QUEUE=atlas_vs_queue`
+- `WORKFLOW_NAME=atlas-vs`
 - `ACP_URL=http://host.docker.internal` / `ACP_PORT=8000`
 - `OPENAI_API_KEY` — For GPT-4o vision calls
 - `SGP_API_KEY` / `SGP_ACCOUNT_ID` — For trace export

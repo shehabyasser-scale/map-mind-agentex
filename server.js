@@ -1,8 +1,9 @@
 /**
  * MapMind — WebSocket Game Server
  *
- * Atlas  → calls through AgentEx (agent-shehab-3) with traces to SGP
- * Nova   → calls OpenAI GPT-4o directly (no traces)
+ * Atlas VS   → calls through AgentEx (atlas-vs) with traces to SGP
+ * Atlas Shehab → calls through AgentEx (atlas-shehab) with traces to SGP
+ * Nova       → calls OpenAI GPT-4o directly (no traces)
  */
 
 require("dotenv").config();
@@ -21,8 +22,6 @@ const wss = new WebSocketServer({ server });
 
 const PORT = process.env.PORT || 4567;
 const AGENTEX_URL = process.env.AGENTEX_URL || "http://localhost:5003";
-const AGENTEX_AGENT_NAME = process.env.AGENTEX_AGENT_NAME || "agent-shehab-3";
-let agentexAgentId = null; // Resolved at startup from agent name → UUID
 
 // OpenAI client for Nova (direct calls)
 const openai = new OpenAI({
@@ -50,18 +49,32 @@ app.get("/api/sample-rounds", (_req, res) => {
 // AI Agent Definitions
 // ============================================
 
-const AGENTS = {
+const ALL_AGENTS = {
   atlas: {
     id: "atlas",
-    name: "Atlas",
+    name: "Atlas VS",
     color: "#6c5ce7",
-    mode: "agentex", // Routes through AgentEx → traces to SGP
+    mode: "agentex",
+    agentexName: process.env.AGENTEX_AGENT_NAME || "atlas-vs",
+    style: "Methodical",
+    initial: "A",
+  },
+  shehab: {
+    id: "shehab",
+    name: "Atlas Shehab",
+    color: "#fdcb6e",
+    mode: "agentex",
+    agentexName: process.env.AGENTEX_AGENT_NAME_SHEHAB || "atlas-shehab",
+    style: "Strategic",
+    initial: "S",
   },
   nova: {
     id: "nova",
     name: "Nova",
     color: "#ff6b6b",
-    mode: "direct", // Calls OpenAI directly → no traces
+    mode: "direct",
+    style: "Intuitive",
+    initial: "N",
     system: `You are Nova, an intuitive geolocation expert competing in MapMind.
 
 Trust your visual instincts and pattern recognition:
@@ -78,6 +91,18 @@ CRITICAL: End your response with your coordinate guess as JSON on its own line:
 {"lat": <number>, "lng": <number>}`,
   },
 };
+
+// Agents list endpoint (for client UI)
+app.get("/api/agents", (_req, res) => {
+  const agents = Object.values(ALL_AGENTS).map((a) => ({
+    id: a.id,
+    name: a.name,
+    color: a.color,
+    style: a.style,
+    initial: a.initial,
+  }));
+  res.json(agents);
+});
 
 const TOTAL_ROUNDS = 20;
 
@@ -121,7 +146,7 @@ function sendTo(ws, message) {
 }
 
 function makeRandomGuess(actual, agentId) {
-  const spreadRanges = { atlas: [3, 18], nova: [5, 22] };
+  const spreadRanges = { atlas: [3, 18], shehab: [3, 18], nova: [5, 22] };
   const [min, max] = spreadRanges[agentId] || [5, 20];
   const spread = min + Math.random() * (max - min);
   return {
@@ -131,20 +156,30 @@ function makeRandomGuess(actual, agentId) {
 }
 
 function parseCoordinateGuess(text) {
-  const jsonMatch = text.match(/\{\s*"lat"\s*:\s*(-?[\d.]+)\s*,\s*"lng"\s*:\s*(-?[\d.]+)\s*\}/);
-  if (jsonMatch) {
-    return { lat: parseFloat(jsonMatch[1]), lng: parseFloat(jsonMatch[2]) };
+  // Pattern 1: JSON object containing "lat" and "lng"/"lon" (with any extra fields like "confidence")
+  const jsonBlocks = text.match(/\{[^{}]*"lat"\s*:[^{}]*\}/g);
+  if (jsonBlocks) {
+    // Take the last JSON block (the final/refined guess)
+    for (let i = jsonBlocks.length - 1; i >= 0; i--) {
+      try {
+        const parsed = JSON.parse(jsonBlocks[i]);
+        if (typeof parsed.lat === "number" && (typeof parsed.lng === "number" || typeof parsed.lon === "number")) {
+          return {
+            lat: parsed.lat,
+            lng: parsed.lng ?? parsed.lon,
+            confidence: typeof parsed.confidence === "number" ? parsed.confidence : null,
+          };
+        }
+      } catch {}
+    }
   }
-  const lonMatch = text.match(/\{\s*"lat"\s*:\s*(-?[\d.]+)\s*,\s*"lon"\s*:\s*(-?[\d.]+)\s*\}/);
-  if (lonMatch) {
-    return { lat: parseFloat(lonMatch[1]), lng: parseFloat(lonMatch[2]) };
-  }
+  // Pattern 2: Flexible regex fallback for "latitude"/"lat" and "longitude"/"lng"/"lon"
   const latPattern = /lat(?:itude)?\s*[:=]?\s*(-?[\d.]+)/i;
   const lngPattern = /(?:lng|lon(?:gitude)?)\s*[:=]?\s*(-?[\d.]+)/i;
   const latM = text.match(latPattern);
   const lngM = text.match(lngPattern);
   if (latM && lngM) {
-    return { lat: parseFloat(latM[1]), lng: parseFloat(lngM[1]) };
+    return { lat: parseFloat(latM[1]), lng: parseFloat(lngM[1]), confidence: null };
   }
   return null;
 }
@@ -153,9 +188,8 @@ function parseCoordinateGuess(text) {
 // AgentEx RPC Helper
 // ============================================
 
-async function agentexRPC(method, params) {
-  // Use the /agents/name/ route (no need to resolve UUID)
-  const url = `${AGENTEX_URL}/agents/name/${AGENTEX_AGENT_NAME}/rpc`;
+async function agentexRPC(method, params, agentexName) {
+  const url = `${AGENTEX_URL}/agents/name/${agentexName}/rpc`;
   const body = {
     jsonrpc: "2.0",
     id: crypto.randomUUID(),
@@ -185,23 +219,24 @@ async function agentexRPC(method, params) {
 }
 
 // ============================================
-// Atlas — AgentEx Agent (with SSE streaming)
+// AgentEx Agent (with SSE streaming)
 // ============================================
 
-async function callAtlasViaAgentEx(ws, session, imageUrl, roundData) {
-  try {
-    // 1. Create a NEW task for each round (clean slate, avoids stale SSE state)
-    console.log("[Atlas/AgentEx] Creating task...");
-    const task = await agentexRPC("task/create", {
-      name: `mapmind-atlas-${crypto.randomUUID().slice(0, 8)}`,
-      params: {},
-    });
-    const taskId = task.id;
-    console.log(`[Atlas/AgentEx] Task created: ${taskId}`);
+async function callAgentexAgent(ws, session, agentId, imageUrl, roundData) {
+  const agent = ALL_AGENTS[agentId];
+  const agentexName = agent.agentexName;
 
-    // 2. Connect to SSE stream BEFORE sending the event (so we don't miss deltas)
+  try {
+    console.log(`[${agent.name}/AgentEx] Creating task...`);
+    const task = await agentexRPC("task/create", {
+      name: `mapmind-${agentId}-${crypto.randomUUID().slice(0, 8)}`,
+      params: {},
+    }, agentexName);
+    const taskId = task.id;
+    console.log(`[${agent.name}/AgentEx] Task created: ${taskId}`);
+
     const streamUrl = `${AGENTEX_URL}/tasks/${taskId}/stream`;
-    console.log(`[Atlas/AgentEx] Connecting to SSE: ${streamUrl}`);
+    console.log(`[${agent.name}/AgentEx] Connecting to SSE: ${streamUrl}`);
     const sseResponse = await fetch(streamUrl, {
       headers: {
         Accept: "text/event-stream",
@@ -216,8 +251,7 @@ async function callAtlasViaAgentEx(ws, session, imageUrl, roundData) {
     const reader = sseResponse.body.getReader();
     const decoder = new TextDecoder();
 
-    // 3. Now send the image URL as an event (SSE is already listening)
-    console.log(`[Atlas/AgentEx] Sending image URL event...`);
+    console.log(`[${agent.name}/AgentEx] Sending image URL event...`);
     await agentexRPC("event/send", {
       task_id: taskId,
       content: {
@@ -225,16 +259,15 @@ async function callAtlasViaAgentEx(ws, session, imageUrl, roundData) {
         author: "user",
         content: imageUrl,
       },
-    });
-    console.log(`[Atlas/AgentEx] Event sent, waiting for agent response...`);
+    }, agentexName);
+    console.log(`[${agent.name}/AgentEx] Event sent, waiting for agent response...`);
 
-    // 4. Read SSE stream — collect reasoning text from the agent
     let fullText = "";
     let buffer = "";
-    let receivedAgentContent = false; // True once we start getting agent reasoning
-    let doneCount = 0; // Track how many "done" events we see
+    let receivedAgentContent = false;
+    let doneCount = 0;
     const startTime = Date.now();
-    const TIMEOUT_MS = 90000; // 90s timeout
+    const TIMEOUT_MS = 90000;
 
     while (Date.now() - startTime < TIMEOUT_MS) {
       const { done, value } = await reader.read();
@@ -256,51 +289,43 @@ async function callAtlasViaAgentEx(ws, session, imageUrl, roundData) {
           continue;
         }
 
-        // Stream text deltas to the game client
         if (eventData.type === "delta" && eventData.delta?.text_delta) {
           const textDelta = eventData.delta.text_delta;
           fullText += textDelta;
           receivedAgentContent = true;
           sendTo(ws, {
             type: "ai_stream",
-            agent: "atlas",
+            agent: agentId,
             text: textDelta,
             done: false,
           });
         }
 
-        // "done" signals end of a message. We care about the one AFTER we started
-        // receiving agent content (skip the welcome message's done)
         if (eventData.type === "done") {
           doneCount++;
-          // The first "done" might be for welcome message, the second for our analysis
-          // But if we already received content, this done is ours
           if (receivedAgentContent) {
-            console.log(`[Atlas/AgentEx] Stream complete (${fullText.length} chars)`);
+            console.log(`[${agent.name}/AgentEx] Stream complete (${fullText.length} chars)`);
             shouldBreak = true;
             break;
           }
         }
 
-        // "full" events deliver complete messages (non-streaming fallback)
         if (eventData.type === "full" && eventData.content) {
           const content = eventData.content;
           if (content.type === "text" && content.author === "agent" && content.content) {
-            // Skip the welcome message
             if (content.content.includes("Welcome to MapMind") || content.content.includes("geolocation expert")) {
               continue;
             }
-            // This is the agent's analysis — use it if we didn't get deltas
             if (!receivedAgentContent) {
               fullText = content.content;
               receivedAgentContent = true;
               sendTo(ws, {
                 type: "ai_stream",
-                agent: "atlas",
+                agent: agentId,
                 text: content.content,
                 done: false,
               });
-              console.log(`[Atlas/AgentEx] Got full message (${fullText.length} chars)`);
+              console.log(`[${agent.name}/AgentEx] Got full message (${fullText.length} chars)`);
               shouldBreak = true;
               break;
             }
@@ -311,109 +336,49 @@ async function callAtlasViaAgentEx(ws, session, imageUrl, roundData) {
       if (shouldBreak) break;
     }
 
-    // Cleanup SSE reader
     try { reader.cancel(); } catch {}
 
     if (!receivedAgentContent) {
-      // SSE didn't give us content — poll messages as fallback
-      console.log("[Atlas/AgentEx] No streaming content, polling messages...");
-      await pollForAtlasResponse(ws, taskId, roundData, session);
-      return;
+      throw new Error("No streaming content received from AgentEx within timeout");
     }
 
-    // Parse coordinates from the agent's response
-    let guess = parseCoordinateGuess(fullText);
-    if (!guess) {
-      console.warn("[Atlas/AgentEx] Could not parse coordinates, using fallback");
-      guess = makeRandomGuess(roundData.location, "atlas");
+    let parsed = parseCoordinateGuess(fullText);
+    let guess;
+    let confidence;
+    if (parsed) {
+      confidence = parsed.confidence ?? 85;
+      guess = { lat: parsed.lat, lng: parsed.lng };
+    } else {
+      console.warn(`[${agent.name}/AgentEx] Could not parse coordinates, using fallback`);
+      guess = makeRandomGuess(roundData.location, agentId);
+      confidence = 30;
     }
 
-    session.currentGuesses.atlas = guess;
+    session.currentGuesses[agentId] = guess;
     sendTo(ws, {
       type: "ai_stream",
-      agent: "atlas",
+      agent: agentId,
       text: "",
       done: true,
       guess,
-      confidence: guess ? 85 : 30,
+      confidence,
     });
 
-    console.log(`[Atlas/AgentEx] Guessed: ${JSON.stringify(guess)} (via AgentEx → traces in SGP)`);
+    console.log(`[${agent.name}/AgentEx] Guessed: ${JSON.stringify(guess)} (via AgentEx → traces in SGP)`);
   } catch (error) {
-    console.error("[Atlas/AgentEx] Error:", error.message);
-    console.log("[Atlas/AgentEx] Falling back to direct OpenAI call...");
-    await callNovaDirectOpenAI(ws, "atlas", imageUrl, session, roundData);
+    console.error(`[${agent.name}/AgentEx] Error:`, error.message);
+    sendTo(ws, { type: "ai_stream", agent: agentId, text: `[AgentEx error: ${error.message}]\n`, done: false });
+    throw error;
   }
-}
-
-// Fallback: poll messages if SSE streaming didn't work
-async function pollForAtlasResponse(ws, taskId, roundData, session) {
-  const maxAttempts = 30;
-  for (let i = 0; i < maxAttempts; i++) {
-    await new Promise((r) => setTimeout(r, 2000)); // Wait 2s between polls
-
-    try {
-      const res = await fetch(
-        `${AGENTEX_URL}/messages?task_id=${taskId}&limit=10&order_by=created_at&order_direction=desc`
-      );
-      const data = await res.json();
-      const messages = data.data || data;
-
-      // Find the latest agent message that's not the welcome message
-      for (const msg of messages) {
-        if (
-          msg.content?.type === "text" &&
-          msg.content?.author === "agent" &&
-          msg.content?.content &&
-          !msg.content.content.includes("Welcome to MapMind") &&
-          !msg.content.content.includes("geolocation expert") &&
-          msg.streaming_status === "DONE"
-        ) {
-          const fullText = msg.content.content;
-          console.log(`[Atlas/AgentEx] Poll found response (${fullText.length} chars)`);
-
-          sendTo(ws, {
-            type: "ai_stream",
-            agent: "atlas",
-            text: fullText,
-            done: false,
-          });
-
-          let guess = parseCoordinateGuess(fullText);
-          if (!guess) guess = makeRandomGuess(roundData.location, "atlas");
-
-          session.currentGuesses.atlas = guess;
-          sendTo(ws, {
-            type: "ai_stream",
-            agent: "atlas",
-            text: "",
-            done: true,
-            guess,
-            confidence: guess ? 85 : 30,
-          });
-          return;
-        }
-      }
-    } catch (e) {
-      console.warn(`[Atlas/AgentEx] Poll error: ${e.message}`);
-    }
-  }
-
-  // Total fallback
-  console.warn("[Atlas/AgentEx] Polling exhausted, using random guess");
-  const guess = makeRandomGuess(roundData.location, "atlas");
-  session.currentGuesses.atlas = guess;
-  sendTo(ws, { type: "ai_stream", agent: "atlas", text: "[AgentEx timeout]\n", done: false });
-  sendTo(ws, { type: "ai_stream", agent: "atlas", text: "", done: true, guess, confidence: 10 });
 }
 
 // ============================================
 // Nova — Direct OpenAI (no AgentEx, no traces)
 // ============================================
 
-async function callNovaDirectOpenAI(ws, agentId, imageUrl, session, roundData) {
-  const agent = AGENTS[agentId];
-  const systemPrompt = agent.system || AGENTS.nova.system;
+async function callDirectAgent(ws, session, agentId, imageUrl, roundData) {
+  const agent = ALL_AGENTS[agentId];
+  const systemPrompt = agent.system || ALL_AGENTS.nova.system;
 
   try {
     console.log(`[${agent.name}/Direct] Analyzing image: ${imageUrl}`);
@@ -449,10 +414,16 @@ async function callNovaDirectOpenAI(ws, agentId, imageUrl, session, roundData) {
       }
     }
 
-    let guess = parseCoordinateGuess(fullText);
-    if (!guess) {
+    let parsed = parseCoordinateGuess(fullText);
+    let guess;
+    let confidence;
+    if (parsed) {
+      confidence = parsed.confidence ?? 80;
+      guess = { lat: parsed.lat, lng: parsed.lng };
+    } else {
       console.warn(`[${agent.name}/Direct] Could not parse coordinates, using fallback`);
       guess = makeRandomGuess(roundData.location, agentId);
+      confidence = 30;
     }
 
     session.currentGuesses[agentId] = guess;
@@ -462,7 +433,7 @@ async function callNovaDirectOpenAI(ws, agentId, imageUrl, session, roundData) {
       text: "",
       done: true,
       guess,
-      confidence: guess ? 80 : 30,
+      confidence,
     });
 
     console.log(`[${agent.name}/Direct] Guessed: ${JSON.stringify(guess)} (direct OpenAI, no traces)`);
@@ -490,6 +461,18 @@ async function callNovaDirectOpenAI(ws, agentId, imageUrl, session, roundData) {
 }
 
 // ============================================
+// Agent Dispatcher
+// ============================================
+
+function callAgent(ws, session, agentId, imageUrl, roundData) {
+  const agent = ALL_AGENTS[agentId];
+  if (agent.mode === "agentex") {
+    return callAgentexAgent(ws, session, agentId, imageUrl, roundData);
+  }
+  return callDirectAgent(ws, session, agentId, imageUrl, roundData);
+}
+
+// ============================================
 // Game Flow
 // ============================================
 
@@ -507,6 +490,7 @@ function playRound(ws, session) {
     totalRounds: session.totalRounds,
     photo: roundData.image_url,
     locationName: roundData.name,
+    agents: session.agents,
   });
 
   setTimeout(async () => {
@@ -525,25 +509,20 @@ async function simulateDualAI(ws, session, roundData) {
   const imageUrl = roundData.image_url;
 
   try {
-    await Promise.all([
-      callAtlasViaAgentEx(ws, session, imageUrl, roundData).catch((err) => {
-        console.error("[Atlas] Unhandled error:", err.message);
-        const guess = makeRandomGuess(roundData.location, "atlas");
-        session.currentGuesses.atlas = guess;
-        sendTo(ws, { type: "ai_stream", agent: "atlas", text: "[Error — using fallback]\n", done: false });
-        sendTo(ws, { type: "ai_stream", agent: "atlas", text: "", done: true, guess, confidence: 10 });
-      }),
-      callNovaDirectOpenAI(ws, "nova", imageUrl, session, roundData).catch((err) => {
-        console.error("[Nova] Unhandled error:", err.message);
-        const guess = makeRandomGuess(roundData.location, "nova");
-        session.currentGuesses.nova = guess;
-        sendTo(ws, { type: "ai_stream", agent: "nova", text: "[Error — using fallback]\n", done: false });
-        sendTo(ws, { type: "ai_stream", agent: "nova", text: "", done: true, guess, confidence: 10 });
-      }),
-    ]);
+    await Promise.all(
+      session.agents.map((agentId) =>
+        callAgent(ws, session, agentId, imageUrl, roundData).catch((err) => {
+          console.error(`[${ALL_AGENTS[agentId].name}] Unhandled error:`, err.message);
+          const guess = makeRandomGuess(roundData.location, agentId);
+          session.currentGuesses[agentId] = guess;
+          sendTo(ws, { type: "ai_stream", agent: agentId, text: "[Error — using fallback]\n", done: false });
+          sendTo(ws, { type: "ai_stream", agent: agentId, text: "", done: true, guess, confidence: 10 });
+        })
+      )
+    );
   } catch (err) {
     console.error("[Game] Critical error in dual AI:", err.message);
-    for (const agentId of ["atlas", "nova"]) {
+    for (const agentId of session.agents) {
       if (!session.currentGuesses[agentId]) {
         const guess = makeRandomGuess(roundData.location, agentId);
         session.currentGuesses[agentId] = guess;
@@ -559,7 +538,8 @@ async function simulateDualAI(ws, session, roundData) {
 function finishRound(ws, session, roundData) {
   const actual = roundData.location;
 
-  const results = Object.keys(AGENTS).map((agentId) => {
+  const results = session.agents.map((agentId) => {
+    const agent = ALL_AGENTS[agentId];
     const guess = session.currentGuesses[agentId];
     const dist = haversineDistance(guess.lat, guess.lng, actual.lat, actual.lng);
     const roundedDist = Math.round(dist);
@@ -567,8 +547,8 @@ function finishRound(ws, session, roundData) {
     session.roundWins[agentId] = session.roundWins[agentId] || 0;
     return {
       agentId,
-      name: AGENTS[agentId].name,
-      color: AGENTS[agentId].color,
+      name: agent.name,
+      color: agent.color,
       guess,
       distance: roundedDist,
     };
@@ -584,11 +564,11 @@ function finishRound(ws, session, roundData) {
   }
 
   const isLastRound = session.currentRound >= session.totalRounds;
-  const leaderboard = Object.keys(AGENTS)
+  const leaderboard = session.agents
     .map((id) => ({
       id,
-      name: AGENTS[id].name,
-      color: AGENTS[id].color,
+      name: ALL_AGENTS[id].name,
+      color: ALL_AGENTS[id].color,
       totalDistance: session.agentDistances[id],
       roundWins: session.roundWins[id] || 0,
     }))
@@ -624,16 +604,31 @@ wss.on("connection", (ws) => {
 
     switch (msg.type) {
       case "start_game": {
+        const selectedAgents = msg.agents || ["atlas", "nova"];
+
+        if (selectedAgents.length !== 2 || selectedAgents[0] === selectedAgents[1]) {
+          sendTo(ws, { type: "error", message: "Please select two different agents." });
+          break;
+        }
+        if (!selectedAgents.every((id) => ALL_AGENTS[id])) {
+          sendTo(ws, { type: "error", message: "Invalid agent selection." });
+          break;
+        }
+
         const rounds = loadRounds();
+        const distances = {};
+        const wins = {};
+        selectedAgents.forEach((id) => { distances[id] = 0; wins[id] = 0; });
+
         session = {
           rounds,
           currentRound: 0,
           totalRounds: Math.min(TOTAL_ROUNDS, rounds.length),
-          agentDistances: { atlas: 0, nova: 0 },
-          roundWins: { atlas: 0, nova: 0 },
+          agentDistances: distances,
+          roundWins: wins,
           draws: 0,
           currentGuesses: {},
-          atlasTaskId: null,
+          agents: selectedAgents,
         };
 
         sendTo(ws, { type: "game_starting" });
@@ -667,11 +662,11 @@ wss.on("connection", (ws) => {
 
       case "show_scoreboard": {
         if (!session) return;
-        const leaderboard = Object.keys(AGENTS)
+        const leaderboard = session.agents
           .map((id) => ({
             id,
-            name: AGENTS[id].name,
-            color: AGENTS[id].color,
+            name: ALL_AGENTS[id].name,
+            color: ALL_AGENTS[id].color,
             totalDistance: session.agentDistances[id],
             roundWins: session.roundWins[id] || 0,
           }))
@@ -682,17 +677,7 @@ wss.on("connection", (ws) => {
       }
 
       case "play_again": {
-        const rounds = loadRounds();
-        session = {
-          rounds,
-          currentRound: 0,
-          totalRounds: Math.min(TOTAL_ROUNDS, rounds.length),
-          agentDistances: { atlas: 0, nova: 0 },
-          roundWins: { atlas: 0, nova: 0 },
-          draws: 0,
-          currentGuesses: {},
-          atlasTaskId: null,
-        };
+        session = null;
         sendTo(ws, { type: "game_reset" });
         break;
       }
@@ -713,15 +698,17 @@ wss.on("connection", (ws) => {
 
 server.listen(PORT, () => {
   const hasKey = !!process.env.OPENAI_API_KEY;
+  const agentList = Object.values(ALL_AGENTS)
+    .map((a) => `${a.name} (${a.mode}${a.agentexName ? ": " + a.agentexName : ""})`)
+    .join(", ");
   console.log(`\n  MapMind Server`);
   console.log(`  ──────────────────────────────────────────`);
   console.log(`  Local:      http://localhost:${PORT}`);
   console.log(`  Network:    http://${getLocalIP()}:${PORT}`);
   console.log(`  OpenAI Key: ${hasKey ? "Set" : "MISSING!"}`);
   console.log(`  AgentEx:    ${AGENTEX_URL}`);
+  console.log(`  Agents:     ${agentList}`);
   console.log(`  ──────────────────────────────────────────`);
-  console.log(`  Atlas: AgentEx (agent-shehab-3) → traces to SGP`);
-  console.log(`  Nova:  Direct OpenAI → no traces`);
   if (!hasKey) {
     console.log(`\n  Set OPENAI_API_KEY in .env to enable AI`);
   }

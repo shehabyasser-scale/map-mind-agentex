@@ -242,9 +242,10 @@ class GameMap {
     currentRound: 0,
     totalRounds: 5,
     currentPhoto: null,
-    atlasStreamText: "",
-    novaStreamText: "",
     lastLeaderboard: null,
+    availableAgents: [],
+    selectedAgents: [],
+    streamTexts: {},
   };
 
   const conn = new Connection();
@@ -271,11 +272,99 @@ class GameMap {
     }
   }
 
+  // --- Agent Selection ---
+
+  async function loadAgents() {
+    try {
+      const res = await fetch("/api/agents");
+      state.availableAgents = await res.json();
+    } catch {
+      // Fallback if API fails
+      state.availableAgents = [
+        { id: "atlas", name: "Atlas VS", color: "#6c5ce7", style: "Methodical", initial: "A" },
+        { id: "shehab", name: "Atlas Shehab", color: "#fdcb6e", style: "Strategic", initial: "S" },
+        { id: "nova", name: "Nova", color: "#ff6b6b", style: "Intuitive", initial: "N" },
+      ];
+    }
+    populateSelectors();
+  }
+
+  function populateSelectors() {
+    const sel1 = document.getElementById("select-agent-1");
+    const sel2 = document.getElementById("select-agent-2");
+    sel1.innerHTML = "";
+    sel2.innerHTML = "";
+
+    state.availableAgents.forEach((agent) => {
+      sel1.appendChild(new Option(agent.name, agent.id));
+      sel2.appendChild(new Option(agent.name, agent.id));
+    });
+
+    // Default: first and last agent
+    if (state.availableAgents.length >= 2) {
+      sel1.value = state.availableAgents[0].id;
+      sel2.value = state.availableAgents[state.availableAgents.length - 1].id;
+    }
+
+    sel1.addEventListener("change", updateMatchupPreview);
+    sel2.addEventListener("change", updateMatchupPreview);
+    updateMatchupPreview();
+  }
+
+  function getAgentById(id) {
+    return state.availableAgents.find((a) => a.id === id);
+  }
+
+  function updateMatchupPreview() {
+    const sel1 = document.getElementById("select-agent-1");
+    const sel2 = document.getElementById("select-agent-2");
+    const a1 = getAgentById(sel1.value);
+    const a2 = getAgentById(sel2.value);
+    const container = document.getElementById("agent-matchup");
+    const errorEl = document.getElementById("agent-select-error");
+
+    if (!a1 || !a2) return;
+
+    if (a1.id === a2.id) {
+      errorEl.textContent = "Please select two different agents.";
+      errorEl.classList.remove("hidden");
+    } else {
+      errorEl.classList.add("hidden");
+    }
+
+    container.innerHTML = `
+      <div class="agent-card" style="border-color: ${a1.color}22;">
+        <div class="agent-avatar" style="background: ${a1.color}15; color: ${a1.color}; border: 2px solid ${a1.color}; box-shadow: 0 0 20px ${a1.color}33;">${a1.initial}</div>
+        <span class="agent-label">${escapeHtml(a1.name)}</span>
+        <span class="agent-style">${escapeHtml(a1.style)}</span>
+      </div>
+      <span class="vs-badge">VS</span>
+      <div class="agent-card" style="border-color: ${a2.color}22;">
+        <div class="agent-avatar" style="background: ${a2.color}15; color: ${a2.color}; border: 2px solid ${a2.color}; box-shadow: 0 0 20px ${a2.color}33;">${a2.initial}</div>
+        <span class="agent-label">${escapeHtml(a2.name)}</span>
+        <span class="agent-style">${escapeHtml(a2.style)}</span>
+      </div>
+    `;
+  }
+
   // --- Landing ---
 
   function initLanding() {
     document.getElementById("btn-start").addEventListener("click", () => {
-      conn.send({ type: "start_game" });
+      const sel1 = document.getElementById("select-agent-1");
+      const sel2 = document.getElementById("select-agent-2");
+      const a1 = sel1.value;
+      const a2 = sel2.value;
+
+      if (a1 === a2) {
+        const errorEl = document.getElementById("agent-select-error");
+        errorEl.textContent = "Please select two different agents.";
+        errorEl.classList.remove("hidden");
+        return;
+      }
+
+      state.selectedAgents = [a1, a2];
+      conn.send({ type: "start_game", agents: [a1, a2] });
       document.getElementById("btn-start").disabled = true;
       document.getElementById("btn-start").textContent = "Starting...";
     });
@@ -283,23 +372,55 @@ class GameMap {
 
   // --- Dual AI Analysis ---
 
+  function buildAnalysisPanels(agents) {
+    const container = document.getElementById("analysis-agents");
+    container.innerHTML = agents
+      .map((agentId, i) => {
+        const agent = getAgentById(agentId);
+        if (!agent) return "";
+        const isFirst = i === 0;
+        return `
+          <div class="analysis-panel" data-agent="${agent.id}" style="${isFirst ? "border-right: 1px solid var(--glass-border);" : ""}">
+            <div class="analysis-header">
+              <div class="ai-thinking-icon" style="background: linear-gradient(135deg, ${agent.color}, ${agent.color}aa); box-shadow: 0 0 40px ${agent.color}33;">
+                <div class="pulse-ring" style="border-color: ${agent.color};"></div>
+                <span class="ai-icon-text">${agent.initial}</span>
+              </div>
+              <h3 id="${agent.id}-title" class="analysis-title">${escapeHtml(agent.name)} is analyzing...</h3>
+            </div>
+            <div id="${agent.id}-stream" class="analysis-stream">
+              <div class="analysis-cursor" style="background: ${agent.color}; box-shadow: 0 0 6px ${agent.color}cc;"></div>
+            </div>
+            <div id="${agent.id}-confidence" class="ai-confidence hidden">
+              <span class="confidence-label">Confidence</span>
+              <div class="confidence-bar">
+                <div id="${agent.id}-confidence-fill" class="confidence-fill" style="background: linear-gradient(90deg, ${agent.color}, ${agent.color}cc); box-shadow: 0 0 8px ${agent.color}66;"></div>
+              </div>
+              <span id="${agent.id}-confidence-value" class="confidence-value" style="color: ${agent.color};">0%</span>
+            </div>
+          </div>
+        `;
+      })
+      .join("");
+  }
+
   function showDualAnalysis(data) {
     state.currentRound = data.round;
     state.totalRounds = data.totalRounds;
     state.currentPhoto = data.photo;
-    state.atlasStreamText = "";
-    state.novaStreamText = "";
+    state.streamTexts = {};
+
+    const agents = data.agents || state.selectedAgents;
+    state.selectedAgents = agents;
 
     document.getElementById("round-indicator").textContent =
       `Round ${data.round} / ${data.totalRounds}`;
     document.getElementById("analysis-photo-img").src = data.photo || "";
 
-    ["atlas", "nova"].forEach((agent) => {
-      document.getElementById(`${agent}-stream`).innerHTML =
-        '<div class="analysis-cursor"></div>';
-      document.getElementById(`${agent}-confidence`).classList.add("hidden");
-      document.getElementById(`${agent}-title`).textContent =
-        `${agent === "atlas" ? "Atlas" : "Nova"} is analyzing...`;
+    buildAnalysisPanels(agents);
+
+    agents.forEach((agentId) => {
+      state.streamTexts[agentId] = "";
     });
 
     document.getElementById("analysis-actions").classList.add("hidden");
@@ -307,40 +428,47 @@ class GameMap {
   }
 
   function appendAgentStream(data) {
-    const agent = data.agent;
-    const stream = document.getElementById(`${agent}-stream`);
+    const agentId = data.agent;
+    const stream = document.getElementById(`${agentId}-stream`);
     if (!stream) return;
+
+    const agent = getAgentById(agentId);
 
     if (data.done) {
       const cursor = stream.querySelector(".analysis-cursor");
       if (cursor) cursor.remove();
 
-      document.getElementById(`${agent}-title`).textContent =
-        `${agent === "atlas" ? "Atlas" : "Nova"} — done!`;
+      const titleEl = document.getElementById(`${agentId}-title`);
+      if (titleEl) {
+        titleEl.textContent = `${agent ? agent.name : agentId} — done!`;
+      }
 
       if (data.confidence) {
-        const confSection = document.getElementById(`${agent}-confidence`);
-        confSection.classList.remove("hidden");
-        const fill = document.getElementById(`${agent}-confidence-fill`);
-        const value = document.getElementById(`${agent}-confidence-value`);
-        setTimeout(() => {
-          fill.style.width = `${data.confidence}%`;
-          value.textContent = `${data.confidence}%`;
-        }, 100);
+        const confSection = document.getElementById(`${agentId}-confidence`);
+        if (confSection) {
+          confSection.classList.remove("hidden");
+          const fill = document.getElementById(`${agentId}-confidence-fill`);
+          const value = document.getElementById(`${agentId}-confidence-value`);
+          setTimeout(() => {
+            if (fill) fill.style.width = `${data.confidence}%`;
+            if (value) value.textContent = `${data.confidence}%`;
+          }, 100);
+        }
       }
       return;
     }
 
-    const key = `${agent}StreamText`;
-    state[key] += data.text;
+    if (!state.streamTexts[agentId]) state.streamTexts[agentId] = "";
+    state.streamTexts[agentId] += data.text;
 
-    let formatted = escapeHtml(state[key]);
+    let formatted = escapeHtml(state.streamTexts[agentId]);
     formatted = formatted.replace(
       /\b(Europe|Asia|Africa|America|Australia|Oceania|Middle East|Mediterranean|Pacific|Atlantic)\b/gi,
       '<span class="location-highlight">$1</span>'
     );
 
-    stream.innerHTML = formatted + '<div class="analysis-cursor"></div>';
+    const cursorColor = agent ? agent.color : "#00d4aa";
+    stream.innerHTML = formatted + `<div class="analysis-cursor" style="background: ${cursorColor}; box-shadow: 0 0 6px ${cursorColor}cc;"></div>`;
     stream.scrollTop = stream.scrollHeight;
   }
 
@@ -544,6 +672,7 @@ class GameMap {
     conn.on("game_reset", () => {
       state.currentRound = 0;
       state.lastLeaderboard = null;
+      state.streamTexts = {};
       if (state.resultsMap) state.resultsMap.clearAll();
       const btn = document.getElementById("btn-start");
       btn.disabled = false;
@@ -560,6 +689,7 @@ class GameMap {
     initResultsControls();
     initScoreboardControls();
     bindConnectionEvents();
+    loadAgents();
     conn.connect();
   }
 
