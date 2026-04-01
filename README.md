@@ -201,3 +201,4 @@ Scoring is purely distance-based:
 docker build -t mapmind .
 docker run -p 4567:4567 mapmind
 ```
+Just a line to show a diff
